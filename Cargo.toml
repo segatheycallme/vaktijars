@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+axum = { version = "0.8.4", features = ["query", "macros"] }
+serde = { version = "1.0.219", features = ["derive"] }
+askama = "0.14.0"
+askama_web = { version = "0.14.2", features = ["axum-0.8"] }
+tower-http = { version = "0.6.4", features = ["fs", "compression-br"] }
+tokio = { version = "1", features = ["full"] }

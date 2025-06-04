@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+    <script
+      src="https://unpkg.com/htmx.org@2.0.4"
+      integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+      crossorigin="anonymous"
+    ></script>
+    <title>{{ title }}</title>
+  </head>
+  <body>
+    <header class="w-screen h-8 px-4 mt-4 flex justify-between">
+      <svg
+        height="32"
+        viewBox="0 0 209.145 223.694"
+        width="32"
+        class="h-full"
+        alt="vaktija.ba"
+      >
+        <path
+          fill="#6e6f72"
+          d="M149.825 24.996c-.057.581-.008 1.161-.093 1.742l-3.327 21.346c24.334 14.387 40.731 40.788 40.731 71.042 0 45.525-37.036 82.574-82.554 82.574-45.532 0-82.561-37.049-82.561-82.574a82.199 82.199 0 016.514-32.123L12.704 69.232A103.988 103.988 0 00.002 119.125c0 57.652 46.913 104.57 104.58 104.57 57.66 0 104.56-46.92 104.56-104.57.001-41.433-24.291-77.215-59.322-94.129zM100.475 36.766l2.704-17.29c.255-1.72.758-3.356 1.381-4.928-22.472.007-43.237 7.215-60.308 19.308l14.727 16.489c11.999-7.965 26.231-12.807 41.496-13.579z"
+        ></path>
+        <path
+          fill="#a59573"
+          d="M140.115 8.816c-1.183-4.418-4.843-7.944-9.664-8.708a11.737 11.737 0 00-1.636-.106c-3.54 0-6.698 1.621-8.964 4.149-1.451 1.678-2.626 3.575-2.98 5.912L114.4 25.894l-13.927 88.479-51.231-57.405-14.825-16.575-3.505-3.915a11.882 11.882 0 00-8.921-4.021c-2.811 0-5.629.984-7.895 3.023-4.921 4.361-5.359 11.902-.991 16.83l5.324 5.947L33.75 75.44l65.731 73.674c2.279 2.578 5.536 3.98 8.899 3.98 1.104 0 2.23-.178 3.342-.453 4.426-1.318 7.711-5.07 8.419-9.608l17.502-111.47 2.775-17.835c.264-1.706.122-3.356-.303-4.914z"
+        ></path>
+      </svg>
+      <svg
+        aria-hidden="true"
+        data-prefix="fas"
+        data-icon="map-marker-alt"
+        class="h-full text-stone-600"
+        viewBox="0 0 384 512"
+        height="32"
+        width="32"
+      >
+        <path
+          fill="currentColor"
+          d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0zM192 272c44.183 0 80-35.817 80-80s-35.817-80-80-80-80 35.817-80 80 35.817 80 80 80z"
+        ></path>
+      </svg>
+    </header>
+    <!-- ugh -->
+    <main class="min-h-[calc(100vh-12rem-3rem)]">
+      {% block content %} {% endblock %}
+    </main>
+    <footer class="w-screen h-40 mt-8 relative">
+      <img
+        src="/massive_chair_angel.jpg"
+        alt="zajednica"
+        class="h-full w-full"
+      />
+      <div
+        class="absolute top-0 right-0 w-full h-1/2 bg-gradient-to-b from-white/100 to-white/0 flex justify-between"
+      >
+        <span class="px-2">Made by:</span>
+        <span class="px-2 italic">MASSIVE CHAIR ANGEL</span>
+      </div>
+    </footer>
+  </body>
+</html>
