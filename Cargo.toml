@@ -12,4 +12,6 @@ askama_web = { version = "0.14.3", features = ["axum-0.8"] }
 tower-http = { version = "0.6.6", features = ["fs", "compression-br"] }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12.19", features = ["brotli"] }
+chrono = "0.4.41"
+julian = { version = "0.7.0", features = ["chrono"] }
 # axum-client-ip = "1.1.3"

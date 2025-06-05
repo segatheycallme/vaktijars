@@ -1,4 +1,9 @@
-use std::{error::Error, sync::Arc};
+use core::f64;
+use std::{
+    error::Error,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -9,14 +14,19 @@ use axum::{
     routing::get,
     serve::{IncomingStream, serve},
 };
+use chrono::{Datelike, NaiveDate, Utc};
+use julian::Calendar;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeFile};
+use vaktijars::astronomical_measures;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    prayer_times(43.1406976, 20.5213617);
+    todo!();
     let state = Arc::new(Client::builder().brotli(true).build()?);
     let app = Router::new()
         .route("/", get(landing))
@@ -107,56 +117,32 @@ async fn vaktija(
 
     let user_info: IpWhoIs = dbg!(serde_json::from_value(json).unwrap());
 
-    let jd = 0.0;
-    let d = jd - 2451545.0; // jd is the given Julian date 
-
-    let g = 357.529 + 0.98560028 * d;
-    let q = 280.459 + 0.98564736 * d;
-    let L = q + 1.915 * f64::sin(g) + 0.020 * f64::sin(2.0 * g);
-
-    let R = 1.00014 - 0.01671 * f64::cos(g) - 0.00014 * f64::cos(2.0 * g);
-    let e = 23.439 - 0.00000036 * d;
-    let RA = f64::atan2(f64::cos(e) * f64::sin(L), f64::cos(L)) / 15.0;
-
-    let D = f64::asin(f64::sin(e) * f64::sin(L)); // declination of the Sun
-    let EqT = q / 15.0 - RA; // equation of time
-
-    let vakat = vec![
-        VaktijaTime {
-            name: "Zora".to_string(),
-            absolute_time: "02:47".to_string(),
-            relative_time: "prije 17 sati".to_string(),
-        },
-        VaktijaTime {
-            name: "Izlazak Sunca".to_string(),
-            absolute_time: "02:47".to_string(),
-            relative_time: "prije 17 sati".to_string(),
-        },
-        VaktijaTime {
-            name: "Podne".to_string(),
-            absolute_time: "02:47".to_string(),
-            relative_time: "prije 17 sati".to_string(),
-        },
-        VaktijaTime {
-            name: "Ikindija".to_string(),
-            absolute_time: "02:47".to_string(),
-            relative_time: "prije 17 sati".to_string(),
-        },
-        VaktijaTime {
-            name: "Akšam".to_string(),
-            absolute_time: "02:47".to_string(),
-            relative_time: "prije 17 sati".to_string(),
-        },
-        VaktijaTime {
-            name: "Jacija".to_string(),
-            absolute_time: "02:47".to_string(),
-            relative_time: "prije 17 sati".to_string(),
-        },
-    ];
+    let vakat = prayer_times(user_info.latitude, user_info.longitude);
+    //         name: "Zora".to_string(),
+    //         name: "Izlazak Sunca".to_string(),
+    //         name: "Podne".to_string(),
+    //         name: "Ikindija".to_string(),
+    //         name: "Akšam".to_string(),
+    //         name: "Jacija".to_string(),
 
     Vaktija {
         place: "Novi Pazar".to_string(),
         date: "sri, 4. juni 2025 / 8. zu-l-hidždže 1446".to_string(),
         vakat,
     }
+}
+
+fn prayer_times(lat: f64, lon: f64) -> Vec<VaktijaTime> {
+    let (solar_declination, equation_of_time) = astronomical_measures();
+    let solar_noon = 12.0 + 2.0 - lon / 15.0 - equation_of_time;
+    dbg!(solar_noon);
+    let up = (-0.833_f64).to_radians().sin()
+        + lat.to_radians().sin() * solar_declination.to_radians().sin();
+    let down = lat.to_radians().cos() * solar_declination.to_radians().cos();
+    let izlazak = solar_noon - (dbg!((dbg!(-up) / dbg!(down))).acos() / 15.0_f64.to_radians());
+    let zalazak = solar_noon + (dbg!((dbg!(-up) / dbg!(down))).acos() / 15.0_f64.to_radians());
+    dbg!(izlazak);
+    dbg!(zalazak);
+    todo!();
+    vec![]
 }
