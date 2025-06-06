@@ -160,7 +160,7 @@ impl VaktijaTime {
                     since.num_hours(),
                     match since.num_hours() % 20 {
                         1 => "sat",
-                        2..=5 => "sata",
+                        2..5 => "sata",
                         _ => "sati",
                     },
                 ),
@@ -175,7 +175,7 @@ impl VaktijaTime {
                     since.num_seconds(),
                     match since.num_seconds() % 20 {
                         1 => "sekunda",
-                        2..=5 => "sekunde",
+                        2..5 => "sekunde",
                         _ => "sekundi",
                     },
                 ),
@@ -203,22 +203,20 @@ async fn vaktija(
     ConnectInfo(info): ConnectInfo<IpInfo>,
     State(client): State<Arc<Client>>,
 ) -> Vaktija {
-    let json: Value = dbg!(
-        serde_json::from_str(
-            &client
-                .get(format!(
-                    "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset,city",
-                    info.ip
-                ))
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap(),
-        )
-        .unwrap()
-    );
+    let json: Value = serde_json::from_str(
+        &client
+            .get(format!(
+                "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset,city",
+                info.ip
+            ))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
 
     let now = Utc::now().date_naive();
     let mut vakat = prayer_times(

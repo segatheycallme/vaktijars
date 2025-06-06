@@ -15,14 +15,15 @@
       const seconds = fxWidth(secs % 60);
       document.getElementById("time").textContent = `${hours}:${minutes}:${seconds}`;
     }
-    changeDOM(next_prayer);
+    // changeDOM(next_prayer);
     setInterval(() => {
       next_prayer--;
       changeDOM(next_prayer);
     }, 1000);
   </script>
   <h1 id="time" class="text-stone-300 text-6xl font-bold text-center mb-6 mt-2">
-    02:18:07
+    {{"{:0>2}"|format(next_prayer / 3600)}}:{{"{:0>2}"|format(next_prayer / 60 %
+    60)}}:{{"{:0>2}"|format(next_prayer % 60)}}
   </h1>
   <h2 class="text-5xl font-bold text-center mb-3">{{place}}</h2>
   <p class="text-sm italic text-center">{{date}}</p>

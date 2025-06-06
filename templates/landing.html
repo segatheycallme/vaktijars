@@ -1,5 +1,5 @@
 {% extends "base.html" %} {% block content %}
-<div hx-get="/vaktija" hx-trigger="load">
-  <p>Loading...</p>
+<div hx-get="/vaktija" hx-trigger="load, every 1m">
+  <p>:p</p>
 </div>
 {% endblock %}

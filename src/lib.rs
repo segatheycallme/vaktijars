@@ -33,5 +33,5 @@ pub fn astronomical_measures(now: NaiveDate) -> (f64, f64) {
     // approx declination
     let d = (-23.45 * ((360.0 / 365.0) * (days + 10.0)).to_radians().cos()).to_radians();
 
-    dbg!((d, eot_hours))
+    (d, eot_hours)
 }
