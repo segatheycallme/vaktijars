@@ -1,5 +1,27 @@
 <div class="flex flex-col justify-center text-stone-700 lg:pt-20">
-  <h1 class="text-stone-300 text-6xl font-bold text-center mb-6 mt-2">
+  <script>
+    // i hate writing js
+    let next_prayer = {{next_prayer}};
+    function fxWidth(n) {
+      const num = Math.trunc(n);
+      if (num < 10) {
+        return "0" + num;
+      }
+      return "" + num;
+    }
+    function changeDOM(secs) {
+      const hours = fxWidth(secs / 3600);
+      const minutes = fxWidth(secs / 60 % 60);
+      const seconds = fxWidth(secs % 60);
+      document.getElementById("time").textContent = `${hours}:${minutes}:${seconds}`;
+    }
+    changeDOM(next_prayer);
+    setInterval(() => {
+      next_prayer--;
+      changeDOM(next_prayer);
+    }, 1000);
+  </script>
+  <h1 id="time" class="text-stone-300 text-6xl font-bold text-center mb-6 mt-2">
     02:18:07
   </h1>
   <h2 class="text-5xl font-bold text-center mb-3">{{place}}</h2>
@@ -10,9 +32,8 @@
     {% for time in vakat %}
     <div class="mt-8">
       <h4 class="text-center text-2xl">{{time.name}}</h4>
-      <!-- <h3 class="text-center text-5xl font-bold">{{time.absolute_time()}}</h3> -->
-      <h3 class="text-center text-5xl font-bold">
-        {{"{:.2}"|format(time.hours)}}
+      <h3 class="text-center text-5xl font-bold text-{{time.get_color()}}">
+        {{time.absolute_time()}}
       </h3>
       <h4 class="text-center text-base">{{time.relative_time()}}</h4>
     </div>

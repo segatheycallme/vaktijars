@@ -10,6 +10,7 @@ use axum::{
     routing::get,
     serve::{IncomingStream, serve},
 };
+use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -18,7 +19,8 @@ use vaktijars::astronomical_measures;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // prayer_times(45.75, 16.0, 2.0);
+    // prayer_times(59.32982, 18.086, 2.0, Utc::now().date_naive());
+    // todo!();
     let state = Arc::new(Client::builder().brotli(true).build()?);
     let app = Router::new()
         .route("/", get(landing))
@@ -71,32 +73,129 @@ struct Vaktija {
     place: String,
     date: String,
     vakat: Vec<VaktijaTime>,
+    next_prayer: u32,
 }
 
+#[derive(Debug)]
+enum VaktijaColor {
+    Base,
+    Active,
+}
+
+#[derive(Debug)]
 struct VaktijaTime {
     name: String,
-    hours: f64,
+    date_time: Option<NaiveDateTime>,
+    now: NaiveDateTime,
+    color: VaktijaColor,
 }
 
 impl VaktijaTime {
-    fn new(name: &str, mut hours: f64) -> Self {
-        if hours < 0.0 {
-            hours += 24.0;
-        }
-        if hours > 24.0 {
-            hours -= 24.0;
-        }
+    fn new(name: &str, hours: f64, offset: FixedOffset) -> Self {
+        // this line assumes that the day hasn't changed since calculating prayer times
+        let today = Utc::now().date_naive();
+
+        let date_time = match hours {
+            ..0.0 => Some(
+                today.pred_opt().unwrap().and_time(
+                    NaiveTime::from_num_seconds_from_midnight_opt(
+                        ((hours + 24.0) * 3600.0) as u32,
+                        0,
+                    )
+                    .unwrap(),
+                ),
+            ),
+            0.0..=24.0 => Some(
+                today.and_time(
+                    NaiveTime::from_num_seconds_from_midnight_opt(
+                        ((hours + 0.0) * 3600.0) as u32,
+                        0,
+                    )
+                    .unwrap(),
+                ),
+            ),
+            24.0.. => Some(
+                today.succ_opt().unwrap().and_time(
+                    NaiveTime::from_num_seconds_from_midnight_opt(
+                        ((hours - 24.0) * 3600.0) as u32,
+                        0,
+                    )
+                    .unwrap(),
+                ),
+            ),
+            x if x.is_nan() => None,
+            x => panic!("????, magic time: {x}"),
+        };
 
         VaktijaTime {
             name: name.to_string(),
-            hours,
+            date_time,
+            now: Utc::now().naive_utc().checked_add_offset(offset).unwrap(),
+            color: VaktijaColor::Base,
         }
     }
-    fn absolute_time(&self) -> &String {
-        &self.name
+    fn absolute_time(&self) -> String {
+        if let Some(date_time) = self.date_time {
+            return format!(
+                "{:0>2}:{:0>2}",
+                date_time.num_seconds_from_midnight() / 3600,
+                (date_time.num_seconds_from_midnight() + 1) / 60 % 60
+            );
+        }
+        "N/A".to_string()
     }
-    fn relative_time(&self) -> &String {
-        &self.name
+    fn relative_time(&self) -> String {
+        if let Some(date_time) = self.date_time {
+            let mut since = date_time.signed_duration_since(self.now);
+
+            // pakao
+            let before_or_after = if since.num_seconds() > 0 {
+                "za"
+            } else {
+                since = since.checked_mul(-1).unwrap();
+                "pre"
+            };
+            let (number, unit) = match since.num_seconds() {
+                3600.. => (
+                    since.num_hours(),
+                    match since.num_hours() % 20 {
+                        1 => "sat",
+                        2..=5 => "sata",
+                        _ => "sati",
+                    },
+                ),
+                60..3600 => (
+                    since.num_minutes(),
+                    match since.num_minutes() % 20 {
+                        1 => "minut",
+                        _ => "minuta",
+                    },
+                ),
+                0..60 => (
+                    since.num_seconds(),
+                    match since.num_seconds() % 20 {
+                        1 => "sekunda",
+                        2..=5 => "sekunde",
+                        _ => "sekundi",
+                    },
+                ),
+                _ => panic!("????, negative since seconds"),
+            };
+            return format!("{} {} {}", before_or_after, number, unit);
+        }
+        "N/A".to_string()
+    }
+    fn time_remaining(&self) -> i32 {
+        self.date_time.map_or(-1, |date_time| {
+            date_time.signed_duration_since(self.now).num_seconds() as i32
+        })
+    }
+    fn get_color(&self) -> String {
+        match self.color {
+            VaktijaColor::Base => "stone-800",
+            VaktijaColor::Active => "stone-400",
+        }
+        .to_string()
     }
 }
 
@@ -104,50 +203,61 @@ async fn vaktija(
     ConnectInfo(info): ConnectInfo<IpInfo>,
     State(client): State<Arc<Client>>,
 ) -> Vaktija {
-    let json: Value = serde_json::from_str(
-        &client
-            .get(format!(
-                "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset",
-                info.ip
-            ))
-            .send()
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap(),
-    )
-    .unwrap();
+    let json: Value = dbg!(
+        serde_json::from_str(
+            &client
+                .get(format!(
+                    "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset,city",
+                    info.ip
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap(),
+        )
+        .unwrap()
+    );
 
-    let vakat = prayer_times(
+    let now = Utc::now().date_naive();
+    let mut vakat = prayer_times(
         json["latitude"].as_f64().unwrap(),
         json["longitude"].as_f64().unwrap(),
         json["timezone"]["offset"].as_f64().unwrap() / 3600.0,
+        now,
     );
 
+    let (next_prayer_idx, _) = vakat
+        .iter()
+        .enumerate()
+        .min_by_key(|(_, x)| x.time_remaining() as u32) // crazy time save
+        .unwrap();
+    vakat[next_prayer_idx].color = VaktijaColor::Active;
+
     Vaktija {
-        place: "Novi Pazar".to_string(),
-        date: "sri, 4. juni 2025 / 8. zu-l-hidždže 1446".to_string(),
+        place: json["city"].as_str().unwrap().to_string(),
+        date: now.to_string(),
+        next_prayer: vakat[next_prayer_idx].time_remaining() as u32,
         vakat,
     }
 }
 
 // praytimes.org/calculations
-fn prayer_times(lat: f64, lon: f64, timezone: f64) -> Vec<VaktijaTime> {
-    let (solar_declination, equation_of_time) = astronomical_measures();
+fn prayer_times(lat: f64, lon: f64, timezone: f64, now: NaiveDate) -> Vec<VaktijaTime> {
+    let (solar_declination, equation_of_time) = astronomical_measures(now);
     let solar_noon = 12.0 + timezone - lon / 15.0 - equation_of_time;
     let t = |a: f64| {
-        (-(a.to_radians().sin() + lat.to_radians().sin() * solar_declination.to_radians().sin())
-            / (lat.to_radians().cos() * solar_declination.to_radians().cos()))
-        .acos()
-            / 15.0_f64.to_radians()
+        let up = -a.to_radians().sin() - lat.to_radians().sin() * solar_declination.sin();
+        let down = lat.to_radians().cos() * solar_declination.cos();
+        (up / down).acos() / 15.0_f64.to_radians()
     };
     let a = |t: f64| {
-        ((((1.0 / ((lat - solar_declination).to_radians().tan() + t))
+        ((((1.0 / ((lat.to_radians() - solar_declination).tan() + t))
             .atan()
             .sin())
-            - lat.to_radians().sin() * solar_declination.to_radians().sin())
-            / (lat.to_radians().cos() * solar_declination.to_radians().cos()))
+            - lat.to_radians().sin() * solar_declination.sin())
+            / (lat.to_radians().cos() * solar_declination.cos()))
         .acos()
             / 15.0_f64.to_radians()
     };
@@ -156,12 +266,14 @@ fn prayer_times(lat: f64, lon: f64, timezone: f64) -> Vec<VaktijaTime> {
     let fajr = solar_noon - t(18.0); // muslim world league angles
     let isha = solar_noon + t(17.0); // muslim world league angles
     let asr = solar_noon + a(1.0);
+
+    let offset = FixedOffset::east_opt((timezone * 3600.0) as i32).unwrap();
     vec![
-        VaktijaTime::new("Zora", fajr),
-        VaktijaTime::new("Izlazak Sunca", sunrise),
-        VaktijaTime::new("Podne", solar_noon),
-        VaktijaTime::new("Ikindija", asr),
-        VaktijaTime::new("Akšam", sunset),
-        VaktijaTime::new("Jacija", isha),
+        VaktijaTime::new("Zora", fajr, offset),
+        VaktijaTime::new("Izlazak Sunca", sunrise, offset),
+        VaktijaTime::new("Podne", solar_noon, offset),
+        VaktijaTime::new("Ikindija", asr, offset),
+        VaktijaTime::new("Akšam", sunset, offset),
+        VaktijaTime::new("Jacija", isha, offset),
     ]
 }
