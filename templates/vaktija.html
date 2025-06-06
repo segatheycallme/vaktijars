@@ -10,8 +10,11 @@
     {% for time in vakat %}
     <div class="mt-8">
       <h4 class="text-center text-2xl">{{time.name}}</h4>
-      <h3 class="text-center text-5xl font-bold">{{time.absolute_time}}</h3>
-      <h4 class="text-center text-base">{{time.relative_time}}</h4>
+      <!-- <h3 class="text-center text-5xl font-bold">{{time.absolute_time()}}</h3> -->
+      <h3 class="text-center text-5xl font-bold">
+        {{"{:.2}"|format(time.hours)}}
+      </h3>
+      <h4 class="text-center text-base">{{time.relative_time()}}</h4>
     </div>
     {% endfor %}
   </div>

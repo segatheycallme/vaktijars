@@ -2,6 +2,7 @@ use chrono::Datelike;
 use chrono::NaiveDate;
 use chrono::Utc;
 
+// calendrical calculations
 pub fn astronomical_measures() -> (f64, f64) {
     let now = Utc::now().date_naive();
     let jd: julian::Date = now.into();
@@ -26,12 +27,13 @@ pub fn astronomical_measures() -> (f64, f64) {
         - 0.5 * y * y * (4.0 * half_life.to_radians()).sin()
         - 1.25 * eccentricity * eccentricity * (2.0 * anomaly).to_radians().sin();
 
-    let eot_minutes = eot * (180.0 / core::f64::consts::PI) / 15.0;
+    let eot_hours = eot * (180.0 / core::f64::consts::PI) / 15.0;
 
     let jan1 = NaiveDate::from_ymd_opt(now.year(), 1, 1).unwrap();
     let days = (now - jan1).num_days() as f64;
 
+    // approx declination
     let d = -23.45 * ((360.0 / 365.0) * days + 10.0).to_radians().cos();
 
-    dbg!((d, eot_minutes))
+    dbg!((d, eot_hours))
 }

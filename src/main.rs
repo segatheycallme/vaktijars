@@ -1,9 +1,5 @@
 use core::f64;
-use std::{
-    error::Error,
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{error::Error, sync::Arc};
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -14,10 +10,7 @@ use axum::{
     routing::get,
     serve::{IncomingStream, serve},
 };
-use chrono::{Datelike, NaiveDate, Utc};
-use julian::Calendar;
 use reqwest::Client;
-use serde::Deserialize;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeFile};
@@ -25,8 +18,7 @@ use vaktijars::astronomical_measures;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    prayer_times(43.1406976, 20.5213617);
-    todo!();
+    // prayer_times(45.75, 16.0, 2.0);
     let state = Arc::new(Client::builder().brotli(true).build()?);
     let app = Router::new()
         .route("/", get(landing))
@@ -83,22 +75,36 @@ struct Vaktija {
 
 struct VaktijaTime {
     name: String,
-    absolute_time: String,
-    relative_time: String,
+    hours: f64,
 }
 
-#[derive(Debug, Deserialize)]
-struct IpWhoIs {
-    timezone: f64,
-    latitude: f64,
-    longitude: f64,
+impl VaktijaTime {
+    fn new(name: &str, mut hours: f64) -> Self {
+        if hours < 0.0 {
+            hours += 24.0;
+        }
+        if hours > 24.0 {
+            hours -= 24.0;
+        }
+
+        VaktijaTime {
+            name: name.to_string(),
+            hours,
+        }
+    }
+    fn absolute_time(&self) -> &String {
+        &self.name
+    }
+    fn relative_time(&self) -> &String {
+        &self.name
+    }
 }
 
 async fn vaktija(
     ConnectInfo(info): ConnectInfo<IpInfo>,
     State(client): State<Arc<Client>>,
 ) -> Vaktija {
-    let mut json: Value = serde_json::from_str(
+    let json: Value = serde_json::from_str(
         &client
             .get(format!(
                 "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset",
@@ -113,17 +119,11 @@ async fn vaktija(
     )
     .unwrap();
 
-    json["timezone"] = json["timezone"]["offset"].clone();
-
-    let user_info: IpWhoIs = dbg!(serde_json::from_value(json).unwrap());
-
-    let vakat = prayer_times(user_info.latitude, user_info.longitude);
-    //         name: "Zora".to_string(),
-    //         name: "Izlazak Sunca".to_string(),
-    //         name: "Podne".to_string(),
-    //         name: "Ikindija".to_string(),
-    //         name: "Akšam".to_string(),
-    //         name: "Jacija".to_string(),
+    let vakat = prayer_times(
+        json["latitude"].as_f64().unwrap(),
+        json["longitude"].as_f64().unwrap(),
+        json["timezone"]["offset"].as_f64().unwrap() / 3600.0,
+    );
 
     Vaktija {
         place: "Novi Pazar".to_string(),
@@ -132,17 +132,36 @@ async fn vaktija(
     }
 }
 
-fn prayer_times(lat: f64, lon: f64) -> Vec<VaktijaTime> {
+// praytimes.org/calculations
+fn prayer_times(lat: f64, lon: f64, timezone: f64) -> Vec<VaktijaTime> {
     let (solar_declination, equation_of_time) = astronomical_measures();
-    let solar_noon = 12.0 + 2.0 - lon / 15.0 - equation_of_time;
-    dbg!(solar_noon);
-    let up = (-0.833_f64).to_radians().sin()
-        + lat.to_radians().sin() * solar_declination.to_radians().sin();
-    let down = lat.to_radians().cos() * solar_declination.to_radians().cos();
-    let izlazak = solar_noon - (dbg!((dbg!(-up) / dbg!(down))).acos() / 15.0_f64.to_radians());
-    let zalazak = solar_noon + (dbg!((dbg!(-up) / dbg!(down))).acos() / 15.0_f64.to_radians());
-    dbg!(izlazak);
-    dbg!(zalazak);
-    todo!();
-    vec![]
+    let solar_noon = 12.0 + timezone - lon / 15.0 - equation_of_time;
+    let t = |a: f64| {
+        (-(a.to_radians().sin() + lat.to_radians().sin() * solar_declination.to_radians().sin())
+            / (lat.to_radians().cos() * solar_declination.to_radians().cos()))
+        .acos()
+            / 15.0_f64.to_radians()
+    };
+    let a = |t: f64| {
+        ((((1.0 / ((lat - solar_declination).to_radians().tan() + t))
+            .atan()
+            .sin())
+            - lat.to_radians().sin() * solar_declination.to_radians().sin())
+            / (lat.to_radians().cos() * solar_declination.to_radians().cos()))
+        .acos()
+            / 15.0_f64.to_radians()
+    };
+    let sunrise = solar_noon - t(0.833);
+    let sunset = solar_noon + t(0.833);
+    let fajr = solar_noon - t(18.0); // muslim world league angles
+    let isha = solar_noon + t(17.0); // muslim world league angles
+    let asr = solar_noon + a(1.0);
+    vec![
+        VaktijaTime::new("Zora", fajr),
+        VaktijaTime::new("Izlazak Sunca", sunrise),
+        VaktijaTime::new("Podne", solar_noon),
+        VaktijaTime::new("Ikindija", asr),
+        VaktijaTime::new("Akšam", sunset),
+        VaktijaTime::new("Jacija", isha),
+    ]
 }
