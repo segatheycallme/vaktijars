@@ -3,16 +3,10 @@ use std::{error::Error, sync::Arc};
 
 use askama::Template;
 use askama_web::WebTemplate;
-use axum::{
-    Router,
-    extract::{ConnectInfo, State, connect_info::Connected},
-    response::IntoResponse,
-    routing::get,
-    serve::{IncomingStream, serve},
-};
+use axum::{Router, extract::Query, response::IntoResponse, routing::get, serve::serve};
 use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use reqwest::Client;
-use serde_json::Value;
+use serde::Deserialize;
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeFile};
 use vaktijars::astronomical_measures;
@@ -33,26 +27,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .layer(CompressionLayer::new().br(true));
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
-    serve(
-        listener,
-        app.into_make_service_with_connect_info::<IpInfo>(),
-    )
-    .await?;
+    serve(listener, app).await?;
 
     Ok(())
-}
-
-#[derive(Debug, Clone)]
-struct IpInfo {
-    ip: String,
-}
-
-impl Connected<IncomingStream<'_, TcpListener>> for IpInfo {
-    fn connect_info(target: IncomingStream<'_, TcpListener>) -> Self {
-        IpInfo {
-            ip: target.remote_addr().ip().to_string(),
-        }
-    }
 }
 
 #[derive(Template, WebTemplate)]
@@ -199,30 +176,20 @@ impl VaktijaTime {
     }
 }
 
-async fn vaktija(
-    ConnectInfo(info): ConnectInfo<IpInfo>,
-    State(client): State<Arc<Client>>,
-) -> Vaktija {
-    let json: Value = serde_json::from_str(
-        &client
-            .get(format!(
-                "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset,city",
-                info.ip
-            ))
-            .send()
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap(),
-    )
-    .unwrap();
+#[derive(Debug, Deserialize)]
+struct VaktijaInfo {
+    latitude: f64,
+    longitude: f64,
+    timezone: f64,
+    city: String,
+}
 
+async fn vaktija(Query(info): Query<VaktijaInfo>) -> Vaktija {
     let now = Utc::now().date_naive();
     let mut vakat = prayer_times(
-        json["latitude"].as_f64().unwrap_or(43.1406),
-        json["longitude"].as_f64().unwrap_or(20.5213),
-        json["timezone"]["offset"].as_f64().unwrap_or(7200.0) / 3600.0,
+        info.latitude,  //.unwrap_or(43.1406),
+        info.longitude, // .as_f64().unwrap_or(20.5213),
+        info.timezone / 3600.0,
         now,
     );
 
@@ -234,7 +201,7 @@ async fn vaktija(
     vakat[next_prayer_idx].color = VaktijaColor::Active;
 
     Vaktija {
-        place: json["city"].as_str().unwrap_or("Novi Pazar").to_string(),
+        place: info.city,
         date: now.to_string(),
         next_prayer: vakat[next_prayer_idx].time_remaining() as u32,
         vakat,

@@ -1,5 +1,25 @@
 {% extends "base.html" %} {% block content %}
-<div hx-get="/vaktija" hx-trigger="load, every 1m">
+<script>
+  let timezone = new Date().getTimezoneOffset() * -60;
+  // approx coords
+  fetch("https://ipwho.is?fields=latitude,longitude,city").then((res) =>
+    res.json().then((json) => {
+      htmx.ajax("GET", "/vaktija", {
+        values: {
+          latitude: json.latitude,
+          longitude: json.longitude,
+          timezone: timezone,
+          city: json.city,
+        },
+        target: "#vaktija",
+        swap: "innerHTML",
+      });
+    }),
+  );
+  // exact coords wip
+  // navigator.geolocation.getCurrentPosition((pos) => )
+</script>
+<div id="vaktija">
   <p>:p</p>
 </div>
 {% endblock %}
