@@ -220,9 +220,9 @@ async fn vaktija(
 
     let now = Utc::now().date_naive();
     let mut vakat = prayer_times(
-        json["latitude"].as_f64().unwrap(),
-        json["longitude"].as_f64().unwrap(),
-        json["timezone"]["offset"].as_f64().unwrap() / 3600.0,
+        json["latitude"].as_f64().unwrap_or(43.1406),
+        json["longitude"].as_f64().unwrap_or(20.5213),
+        json["timezone"]["offset"].as_f64().unwrap_or(7200.0) / 3600.0,
         now,
     );
 
@@ -234,7 +234,7 @@ async fn vaktija(
     vakat[next_prayer_idx].color = VaktijaColor::Active;
 
     Vaktija {
-        place: json["city"].as_str().unwrap().to_string(),
+        place: json["city"].as_str().unwrap_or("Novi Pazar").to_string(),
         date: now.to_string(),
         next_prayer: vakat[next_prayer_idx].time_remaining() as u32,
         vakat,
