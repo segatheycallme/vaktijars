@@ -49,6 +49,7 @@ struct IpInfo {
 
 impl Connected<IncomingStream<'_, TcpListener>> for IpInfo {
     fn connect_info(target: IncomingStream<'_, TcpListener>) -> Self {
+        dbg!(&target);
         IpInfo {
             ip: target.remote_addr().ip().to_string(),
         }
@@ -203,20 +204,22 @@ async fn vaktija(
     ConnectInfo(info): ConnectInfo<IpInfo>,
     State(client): State<Arc<Client>>,
 ) -> Vaktija {
-    let json: Value = serde_json::from_str(
-        &client
-            .get(format!(
-                "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset,city",
-                info.ip
-            ))
-            .send()
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap(),
-    )
-    .unwrap();
+    let json: Value = dbg!(
+        serde_json::from_str(
+            &client
+                .get(format!(
+                    "https://ipwho.is/{}?fields=latitude,longitude,timezone.offset,city",
+                    dbg!(info.ip)
+                ))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap(),
+        )
+        .unwrap()
+    );
 
     let now = Utc::now().date_naive();
     let mut vakat = prayer_times(
