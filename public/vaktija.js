@@ -61,11 +61,11 @@ function updateSmallTime(el) {
   } else if (minutes % 20 == 1) {
     unit = "minut";
   } else if (seconds % 20 >= 5) {
-    unit = "sekunda";
+    unit = "sekundi";
   } else if (seconds % 20 > 1) {
     unit = "sekunde";
   } else if (seconds % 20 == 1) {
-    unit = "sekunda";
+    unit = "sekundu";
   }
 
   el.textContent = `${prefix} ${num} ${unit}`;
