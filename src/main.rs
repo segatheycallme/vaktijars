@@ -8,7 +8,7 @@ use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 use tokio::net::TcpListener;
-use tower_http::{compression::CompressionLayer, services::ServeFile};
+use tower_http::{compression::CompressionLayer, services::ServeDir};
 use vaktijars::astronomical_measures;
 
 #[tokio::main]
@@ -19,10 +19,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let app = Router::new()
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))
-        .route_service(
-            "/massive_chair_angel.jpg",
-            ServeFile::new("public/massive_chair_angel.jpg"),
-        )
+        .nest_service("/public", ServeDir::new("public"))
         .with_state(state)
         .layer(CompressionLayer::new().br(true));
 
@@ -50,7 +47,7 @@ struct Vaktija {
     place: String,
     date: String,
     vakat: Vec<VaktijaTime>,
-    next_prayer: u32,
+    next_prayer: u64,
 }
 
 #[derive(Debug)]
@@ -121,51 +118,14 @@ impl VaktijaTime {
         }
         "N/A".to_string()
     }
-    fn relative_time(&self) -> String {
-        if let Some(date_time) = self.date_time {
-            let mut since = date_time.signed_duration_since(self.now);
-
-            // pakao
-            let before_or_after = if since.num_seconds() > 0 {
-                "za"
-            } else {
-                since = since.checked_mul(-1).unwrap();
-                "pre"
-            };
-            let (number, unit) = match since.num_seconds() {
-                3600.. => (
-                    since.num_hours(),
-                    match since.num_hours() % 20 {
-                        1 => "sat",
-                        2..5 => "sata",
-                        _ => "sati",
-                    },
-                ),
-                60..3600 => (
-                    since.num_minutes(),
-                    match since.num_minutes() % 20 {
-                        1 => "minut",
-                        _ => "minuta",
-                    },
-                ),
-                0..60 => (
-                    since.num_seconds(),
-                    match since.num_seconds() % 20 {
-                        1 => "sekunda",
-                        2..5 => "sekunde",
-                        _ => "sekundi",
-                    },
-                ),
-                _ => panic!("????, negative since seconds"),
-            };
-            return format!("{} {} {}", before_or_after, number, unit);
-        }
-        "N/A".to_string()
-    }
-    fn time_remaining(&self) -> i32 {
+    fn time_remaining(&self) -> i64 {
         self.date_time.map_or(-1, |date_time| {
-            date_time.signed_duration_since(self.now).num_seconds() as i32
+            date_time.signed_duration_since(self.now).num_seconds()
         })
+    }
+    fn since_epoch(&self) -> i64 {
+        self.date_time
+            .map_or(-1, |date_time| date_time.and_utc().timestamp())
     }
     fn get_color(&self) -> String {
         match self.color {
@@ -196,14 +156,14 @@ async fn vaktija(Query(info): Query<VaktijaInfo>) -> Vaktija {
     let (next_prayer_idx, _) = vakat
         .iter()
         .enumerate()
-        .min_by_key(|(_, x)| x.time_remaining() as u32) // crazy time save
+        .min_by_key(|(_, x)| x.time_remaining() as u64) // crazy time save
         .unwrap();
     vakat[next_prayer_idx].color = VaktijaColor::Active;
 
     Vaktija {
         place: info.city,
         date: now.to_string(),
-        next_prayer: vakat[next_prayer_idx].time_remaining() as u32,
+        next_prayer: vakat[next_prayer_idx].since_epoch() as u64,
         vakat,
     }
 }
