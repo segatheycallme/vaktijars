@@ -3,25 +3,29 @@ use std::{error::Error, sync::Arc};
 
 use askama::Template;
 use askama_web::WebTemplate;
-use axum::{Router, extract::Query, response::IntoResponse, routing::get, serve::serve};
-use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
-use reqwest::Client;
+use axum::{
+    Router,
+    extract::{Query, State},
+    response::IntoResponse,
+    routing::get,
+    serve::serve,
+};
+use chrono::Utc;
+use rstar::{DefaultParams, RTree};
 use serde::Deserialize;
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeDir};
-use vaktijars::astronomical_measures;
+use vaktijars::{City, VaktijaColor, VaktijaTime, generate_coord_rtree, prayer_times};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // prayer_times(59.32982, 18.086, 2.0, Utc::now().date_naive());
-    // todo!();
-    let state = Arc::new(Client::builder().brotli(true).build()?);
+    let state = Arc::new(generate_coord_rtree("c1ties500.csv")?);
     let app = Router::new()
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))
         .nest_service("/public", ServeDir::new("public"))
         .with_state(state)
-        .layer(CompressionLayer::new().br(true));
+        .layer(CompressionLayer::new().br(true).gzip(true));
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
     serve(listener, app).await?;
@@ -52,89 +56,6 @@ struct Vaktija {
     request_info: VaktijaInfo,
 }
 
-#[derive(Debug)]
-enum VaktijaColor {
-    Base,
-    Active,
-}
-
-#[derive(Debug)]
-struct VaktijaTime {
-    name: String,
-    date_time: Option<NaiveDateTime>,
-    now: NaiveDateTime,
-    color: VaktijaColor,
-}
-
-impl VaktijaTime {
-    fn new(name: &str, hours: f64, today: NaiveDate, offset: FixedOffset) -> Self {
-        let date_time = match hours {
-            ..0.0 => Some(
-                today.pred_opt().unwrap().and_time(
-                    NaiveTime::from_num_seconds_from_midnight_opt(
-                        ((hours + 24.0) * 3600.0) as u32,
-                        0,
-                    )
-                    .unwrap(),
-                ),
-            ),
-            0.0..=24.0 => Some(
-                today.and_time(
-                    NaiveTime::from_num_seconds_from_midnight_opt(
-                        ((hours + 0.0) * 3600.0) as u32,
-                        0,
-                    )
-                    .unwrap(),
-                ),
-            ),
-            24.0.. => Some(
-                today.succ_opt().unwrap().and_time(
-                    NaiveTime::from_num_seconds_from_midnight_opt(
-                        ((hours - 24.0) * 3600.0) as u32,
-                        0,
-                    )
-                    .unwrap(),
-                ),
-            ),
-            x if x.is_nan() => None,
-            x => panic!("????, magic time: {x}"),
-        };
-
-        VaktijaTime {
-            name: name.to_string(),
-            date_time,
-            now: Utc::now().naive_utc().checked_add_offset(offset).unwrap(),
-            color: VaktijaColor::Base,
-        }
-    }
-    fn absolute_time(&self) -> String {
-        if let Some(date_time) = self.date_time {
-            return format!(
-                "{:0>2}:{:0>2}",
-                date_time.num_seconds_from_midnight() / 3600,
-                (date_time.num_seconds_from_midnight() + 1) / 60 % 60
-            );
-        }
-        "N/A".to_string()
-    }
-    fn time_remaining(&self) -> i64 {
-        self.date_time.map_or(-1, |date_time| {
-            date_time.signed_duration_since(self.now).num_seconds()
-        })
-    }
-    fn since_epoch(&self) -> i64 {
-        self.date_time
-            .map_or(-1, |date_time| date_time.and_utc().timestamp())
-    }
-    fn get_color(&self) -> String {
-        match self.color {
-            VaktijaColor::Base => "stone-800",
-            VaktijaColor::Active => "stone-400",
-        }
-        .to_string()
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct VaktijaInfo {
     latitude: f64,
@@ -142,7 +63,10 @@ struct VaktijaInfo {
     timezone: f64,
 }
 
-async fn vaktija(Query(info): Query<VaktijaInfo>) -> Vaktija {
+async fn vaktija(
+    Query(info): Query<VaktijaInfo>,
+    State(rtree): State<Arc<RTree<City, DefaultParams>>>,
+) -> Vaktija {
     let mut now = Utc::now().date_naive();
     loop {
         let mut vakat = prayer_times(
@@ -167,7 +91,9 @@ async fn vaktija(Query(info): Query<VaktijaInfo>) -> Vaktija {
         vakat[next_prayer_idx].color = VaktijaColor::Active;
 
         return Vaktija {
-            place: "Najnoviji Pazar".to_string(),
+            place: rtree
+                .nearest_neighbor(&City::new(info.latitude, info.longitude))
+                .map_or("😭".to_string(), |x| x.name.clone()),
             date: now.to_string(),
             next_prayer_since_epoch: vakat[next_prayer_idx].since_epoch() as u64,
             next_prayer_in: vakat[next_prayer_idx].time_remaining() as u64,
@@ -175,39 +101,4 @@ async fn vaktija(Query(info): Query<VaktijaInfo>) -> Vaktija {
             request_info: info,
         };
     }
-}
-
-// praytimes.org/calculations
-fn prayer_times(lat: f64, lon: f64, timezone: f64, now: NaiveDate) -> Vec<VaktijaTime> {
-    let (solar_declination, equation_of_time) = astronomical_measures(now);
-    let solar_noon = 12.0 + timezone - lon / 15.0 - equation_of_time;
-    let t = |a: f64| {
-        let up = -a.to_radians().sin() - lat.to_radians().sin() * solar_declination.sin();
-        let down = lat.to_radians().cos() * solar_declination.cos();
-        (up / down).acos() / 15.0_f64.to_radians()
-    };
-    let a = |t: f64| {
-        ((((1.0 / ((lat.to_radians() - solar_declination).tan() + t))
-            .atan()
-            .sin())
-            - lat.to_radians().sin() * solar_declination.sin())
-            / (lat.to_radians().cos() * solar_declination.cos()))
-        .acos()
-            / 15.0_f64.to_radians()
-    };
-    let sunrise = solar_noon - t(0.833);
-    let sunset = solar_noon + t(0.833);
-    let fajr = solar_noon - t(18.0); // muslim world league angles
-    let isha = solar_noon + t(17.0); // muslim world league angles
-    let asr = solar_noon + a(1.0);
-
-    let offset = FixedOffset::east_opt((timezone * 3600.0) as i32).unwrap();
-    vec![
-        VaktijaTime::new("Zora", fajr, now, offset),
-        VaktijaTime::new("Izlazak Sunca", sunrise, now, offset),
-        VaktijaTime::new("Podne", solar_noon, now, offset),
-        VaktijaTime::new("Ikindija", asr, now, offset),
-        VaktijaTime::new("Akšam", sunset, now, offset),
-        VaktijaTime::new("Jacija", isha, now, offset),
-    ]
 }
