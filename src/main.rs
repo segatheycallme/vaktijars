@@ -47,7 +47,9 @@ struct Vaktija {
     place: String,
     date: String,
     vakat: Vec<VaktijaTime>,
-    next_prayer: u64,
+    next_prayer_since_epoch: u64,
+    next_prayer_in: u64,
+    request_info: VaktijaInfo,
 }
 
 #[derive(Debug)]
@@ -65,10 +67,7 @@ struct VaktijaTime {
 }
 
 impl VaktijaTime {
-    fn new(name: &str, hours: f64, offset: FixedOffset) -> Self {
-        // this line assumes that the day hasn't changed since calculating prayer times
-        let today = Utc::now().date_naive();
-
+    fn new(name: &str, hours: f64, today: NaiveDate, offset: FixedOffset) -> Self {
         let date_time = match hours {
             ..0.0 => Some(
                 today.pred_opt().unwrap().and_time(
@@ -141,30 +140,40 @@ struct VaktijaInfo {
     latitude: f64,
     longitude: f64,
     timezone: f64,
-    city: String,
 }
 
 async fn vaktija(Query(info): Query<VaktijaInfo>) -> Vaktija {
-    let now = Utc::now().date_naive();
-    let mut vakat = prayer_times(
-        info.latitude,  //.unwrap_or(43.1406),
-        info.longitude, // .as_f64().unwrap_or(20.5213),
-        info.timezone / 3600.0,
-        now,
-    );
+    let mut now = Utc::now().date_naive();
+    loop {
+        let mut vakat = prayer_times(
+            info.latitude,  //.unwrap_or(43.1406),
+            info.longitude, // .as_f64().unwrap_or(20.5213),
+            info.timezone / 3600.0,
+            now,
+        );
 
-    let (next_prayer_idx, _) = vakat
-        .iter()
-        .enumerate()
-        .min_by_key(|(_, x)| x.time_remaining() as u64) // crazy time save
-        .unwrap();
-    vakat[next_prayer_idx].color = VaktijaColor::Active;
+        let (next_prayer_idx, _) = vakat
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, x)| x.time_remaining() as u64) // crazy time save
+            .unwrap();
 
-    Vaktija {
-        place: info.city,
-        date: now.to_string(),
-        next_prayer: vakat[next_prayer_idx].since_epoch() as u64,
-        vakat,
+        // best loop use case ever
+        if vakat[next_prayer_idx].time_remaining().is_negative() {
+            now = now.succ_opt().unwrap();
+            continue;
+        }
+
+        vakat[next_prayer_idx].color = VaktijaColor::Active;
+
+        return Vaktija {
+            place: "Najnoviji Pazar".to_string(),
+            date: now.to_string(),
+            next_prayer_since_epoch: vakat[next_prayer_idx].since_epoch() as u64,
+            next_prayer_in: vakat[next_prayer_idx].time_remaining() as u64,
+            vakat,
+            request_info: info,
+        };
     }
 }
 
@@ -194,11 +203,11 @@ fn prayer_times(lat: f64, lon: f64, timezone: f64, now: NaiveDate) -> Vec<Vaktij
 
     let offset = FixedOffset::east_opt((timezone * 3600.0) as i32).unwrap();
     vec![
-        VaktijaTime::new("Zora", fajr, offset),
-        VaktijaTime::new("Izlazak Sunca", sunrise, offset),
-        VaktijaTime::new("Podne", solar_noon, offset),
-        VaktijaTime::new("Ikindija", asr, offset),
-        VaktijaTime::new("Akšam", sunset, offset),
-        VaktijaTime::new("Jacija", isha, offset),
+        VaktijaTime::new("Zora", fajr, now, offset),
+        VaktijaTime::new("Izlazak Sunca", sunrise, now, offset),
+        VaktijaTime::new("Podne", solar_noon, now, offset),
+        VaktijaTime::new("Ikindija", asr, now, offset),
+        VaktijaTime::new("Akšam", sunset, now, offset),
+        VaktijaTime::new("Jacija", isha, now, offset),
     ]
 }

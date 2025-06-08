@@ -1,9 +1,15 @@
-<div class="flex flex-col justify-center text-stone-700 lg:pt-20">
+<!-- peak htmx-ing -->
+<div
+  class="flex flex-col justify-center text-stone-700 lg:pt-20"
+  hx-get="/vaktija?latitude={{request_info.latitude}}&longitude={{request_info.longitude}}&timezone={{request_info.timezone}}"
+  hx-trigger="load delay:{{next_prayer_in}}s"
+  hx-swap="outerHTML"
+>
   <script type="module" src="/public/vaktija.js"></script>
   <h1
     id="time"
     class="text-stone-300 text-6xl font-bold text-center mb-6 mt-2"
-    data-timestamp="{{next_prayer}}"
+    data-timestamp="{{next_prayer_since_epoch}}"
   >
     :(
   </h1>
