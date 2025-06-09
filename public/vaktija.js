@@ -2,15 +2,17 @@
 
 const timezone = new Date().getTimezoneOffset() * -60;
 
-updateTimer(document.getElementById("time"));
-setInterval(() => {
+export function init() {
   updateTimer(document.getElementById("time"));
-}, 1000);
-for (const el of document.getElementsByClassName("kasno")) {
-  updateSmallTime(el);
   setInterval(() => {
-    updateSmallTime(el);
+    updateTimer(document.getElementById("time"));
   }, 1000);
+  for (const el of document.getElementsByClassName("kasno")) {
+    updateSmallTime(el);
+    setInterval(() => {
+      updateSmallTime(el);
+    }, 1000);
+  }
 }
 
 function fxWidth(n) {
@@ -48,19 +50,19 @@ function updateSmallTime(el) {
   }
 
   let unit;
-  if (hours % 20 >= 5) {
+  if (hours % 20 >= 5 || hours == 20) {
     unit = "sati";
   } else if (hours % 20 > 1) {
     unit = "sata";
   } else if (hours % 20 == 1) {
     unit = "sat";
-  } else if (minutes % 20 >= 5) {
+  } else if (minutes % 20 >= 5 || minutes == 20 || minutes == 40) {
     unit = "minuta";
   } else if (minutes % 20 > 1) {
     unit = "minuta";
   } else if (minutes % 20 == 1) {
     unit = "minut";
-  } else if (seconds % 20 >= 5) {
+  } else if (seconds % 20 >= 5 || seconds == 20 || seconds == 40) {
     unit = "sekundi";
   } else if (seconds % 20 > 1) {
     unit = "sekunde";

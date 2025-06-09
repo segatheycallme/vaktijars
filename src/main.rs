@@ -20,6 +20,7 @@ use vaktijars::{City, VaktijaColor, VaktijaTime, generate_coord_rtree, prayer_ti
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let state = Arc::new(generate_coord_rtree("c1ties500.csv")?);
+    println!("RTree generated");
     let app = Router::new()
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))
@@ -28,6 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .layer(CompressionLayer::new().br(true).gzip(true));
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
+    println!("Listening on 0.0.0.0:3000");
     serve(listener, app).await?;
 
     Ok(())
