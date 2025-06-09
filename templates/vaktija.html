@@ -10,13 +10,13 @@
   <h2 class="text-5xl font-bold text-center mb-3">{{place}}</h2>
   <p class="text-sm italic text-center">{{date}}</p>
   <div
-    class="flex flex-col lg:flex-row justify-center lg:justify-evenly lg:px-8 xl:px-16"
+    class="flex flex-col md:grid grid-rows-2 grid-cols-3 xl:grid-cols-6 justify-center lg:justify-evenly lg:px-8 xl:px-16"
   >
     {% for time in vakat %}
     <div class="mt-8">
       <h4 class="text-center text-2xl">{{time.name}}</h4>
       <h3 class="text-center text-5xl font-bold text-{{time.get_color()}}">
-        {{time.absolute_time()}}
+        {{time.absolute_time(precise)}}
       </h3>
       <h4
         class="text-center text-base kasno"

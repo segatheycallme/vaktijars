@@ -41,9 +41,21 @@
     />
   </div>
   <div>
-    <input type="checkbox" name="precision" id="precision" />
+    <input
+      type="checkbox"
+      name="precise"
+      id="precise"
+      checked
+      onchange="htmx.trigger('#vaktija', 'update-vakat')"
+    />
     <label class="mr-2">Precizno vreme</label>
-    <input type="checkbox" name="offset" id="offset" checked />
+    <input
+      type="checkbox"
+      name="offset"
+      id="offset"
+      checked
+      onchange="htmx.trigger('#vaktija', 'update-vakat')"
+    />
     <label class="mr-2">Sigurno vreme</label>
   </div>
 </div>

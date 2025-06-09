@@ -66,13 +66,22 @@ impl VaktijaTime {
             color: VaktijaColor::Base,
         }
     }
-    pub fn absolute_time(&self) -> String {
+    pub fn absolute_time(&self, secs: &bool) -> String {
         if let Some(date_time) = self.date_time {
-            return format!(
-                "{:0>2}:{:0>2}",
-                date_time.num_seconds_from_midnight() / 3600,
-                (date_time.num_seconds_from_midnight() + 1) / 60 % 60
-            );
+            return if *secs {
+                format!(
+                    "{:0>2}:{:0>2}:{:0>2}",
+                    date_time.num_seconds_from_midnight() / 3600,
+                    date_time.num_seconds_from_midnight() / 60 % 60,
+                    date_time.num_seconds_from_midnight() % 60
+                )
+            } else {
+                format!(
+                    "{:0>2}:{:0>2}",
+                    date_time.num_seconds_from_midnight() / 3600,
+                    date_time.num_seconds_from_midnight() / 60 % 60
+                )
+            };
         }
         "N/A".to_string()
     }
@@ -130,7 +139,13 @@ pub fn astronomical_measures(now: NaiveDate) -> (f64, f64) {
 }
 
 // praytimes.org/calculations
-pub fn prayer_times(lat: f64, lon: f64, timezone: f64, now: NaiveDate) -> Vec<VaktijaTime> {
+pub fn prayer_times(
+    lat: f64,
+    lon: f64,
+    timezone: f64,
+    now: NaiveDate,
+    safety: bool,
+) -> Vec<VaktijaTime> {
     let (solar_declination, equation_of_time) = astronomical_measures(now);
     let solar_noon = 12.0 + timezone - lon / 15.0 - equation_of_time;
     let t = |a: f64| {
@@ -153,14 +168,25 @@ pub fn prayer_times(lat: f64, lon: f64, timezone: f64, now: NaiveDate) -> Vec<Va
     let isha = solar_noon + t(17.0); // muslim world league angles
     let asr = solar_noon + a(1.0);
 
+    let safety_minutes = if safety {
+        [-10.0, -12.0, 2.0, 6.0, 12.0, 2.0]
+    } else {
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    };
+
     let offset = FixedOffset::east_opt((timezone * 3600.0) as i32).unwrap();
     vec![
-        VaktijaTime::new("Zora", fajr, now, offset),
-        VaktijaTime::new("Izlazak Sunca", sunrise, now, offset),
-        VaktijaTime::new("Podne", solar_noon, now, offset),
-        VaktijaTime::new("Ikindija", asr, now, offset),
-        VaktijaTime::new("Akšam", sunset, now, offset),
-        VaktijaTime::new("Jacija", isha, now, offset),
+        VaktijaTime::new("Zora", fajr + safety_minutes[0] / 60.0, now, offset),
+        VaktijaTime::new(
+            "Izlazak Sunca",
+            sunrise + safety_minutes[1] / 60.0,
+            now,
+            offset,
+        ),
+        VaktijaTime::new("Podne", solar_noon + safety_minutes[2] / 60.0, now, offset),
+        VaktijaTime::new("Ikindija", asr + safety_minutes[3] / 60.0, now, offset),
+        VaktijaTime::new("Akšam", sunset + safety_minutes[4] / 60.0, now, offset),
+        VaktijaTime::new("Jacija", isha + safety_minutes[5] / 60.0, now, offset),
     ]
 }
 

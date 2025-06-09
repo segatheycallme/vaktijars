@@ -54,6 +54,7 @@ struct Vaktija {
     date: String,
     vakat: Vec<VaktijaTime>,
     next_prayer_since_epoch: u64,
+    precise: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,6 +62,8 @@ struct VaktijaInfo {
     latitude: f64,
     longitude: f64,
     timezone: f64,
+    precise: Option<String>,
+    offset: Option<String>,
 }
 
 async fn vaktija(
@@ -68,12 +71,21 @@ async fn vaktija(
     State(rtree): State<Arc<RTree<City, DefaultParams>>>,
 ) -> Vaktija {
     let mut now = Utc::now().date_naive();
+    let precise = match info.precise {
+        Some(x) => &x == "on",
+        None => false,
+    };
+    let offset = match info.offset {
+        Some(x) => &x == "on",
+        None => false,
+    };
     loop {
         let mut vakat = prayer_times(
             info.latitude,  //.unwrap_or(43.1406),
             info.longitude, // .as_f64().unwrap_or(20.5213),
             info.timezone / 3600.0,
             now,
+            offset,
         );
 
         let (next_prayer_idx, _) = vakat
@@ -97,6 +109,7 @@ async fn vaktija(
             date: now.to_string(),
             next_prayer_since_epoch: vakat[next_prayer_idx].since_epoch() as u64,
             vakat,
+            precise,
         };
     }
 }
