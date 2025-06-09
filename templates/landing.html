@@ -1,7 +1,50 @@
 {% extends "base.html" %} {% block head %}
 <script type="module" src="/public/landing.js"></script>
 {% endblock %} {% block content %}
-<div id="vaktija">
+<div
+  id="vaktija"
+  hx-get="/vaktija"
+  hx-include="#opts"
+  hx-trigger="update-vakat"
+>
   <p>:p</p>
+</div>
+<div
+  id="opts"
+  class="relative lg:absolute bottom-0 left-0 w-screen my-3 flex justify-center items-center gap-2 flex-wrap"
+>
+  <div class="w-22 mr-2">
+    <label>Latituda</label>
+    <input
+      class="w-full border rounded-md"
+      type="number"
+      name="latitude"
+      id="latitude"
+    />
+  </div>
+  <div class="w-22 mr-2">
+    <label>Longituda</label>
+    <input
+      class="w-full border rounded-md"
+      type="number"
+      name="longitude"
+      id="longitude"
+    />
+  </div>
+  <div class="w-22 mr-2">
+    <label>Pomak</label>
+    <input
+      class="w-full border rounded-md"
+      type="number"
+      name="timezone"
+      id="timezone"
+    />
+  </div>
+  <div>
+    <input type="checkbox" name="precision" id="precision" />
+    <label class="mr-2">Precizno vreme</label>
+    <input type="checkbox" name="offset" id="offset" checked />
+    <label class="mr-2">Sigurno vreme</label>
+  </div>
 </div>
 {% endblock %}

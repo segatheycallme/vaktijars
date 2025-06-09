@@ -54,8 +54,6 @@ struct Vaktija {
     date: String,
     vakat: Vec<VaktijaTime>,
     next_prayer_since_epoch: u64,
-    next_prayer_in: u64,
-    request_info: VaktijaInfo,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +79,7 @@ async fn vaktija(
         let (next_prayer_idx, _) = vakat
             .iter()
             .enumerate()
-            .min_by_key(|(_, x)| x.time_remaining() as u64) // crazy time save
+            .min_by_key(|(_, x)| (x.time_remaining() - 1) as u64) // crazy time save
             .unwrap();
 
         // best loop use case ever
@@ -98,9 +96,7 @@ async fn vaktija(
                 .map_or("😭".to_string(), |x| x.name.clone()),
             date: now.to_string(),
             next_prayer_since_epoch: vakat[next_prayer_idx].since_epoch() as u64,
-            next_prayer_in: vakat[next_prayer_idx].time_remaining() as u64,
             vakat,
-            request_info: info,
         };
     }
 }

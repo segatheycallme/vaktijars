@@ -1,30 +1,27 @@
+let latitude, longitude;
 const timezone = new Date().getTimezoneOffset() * -60;
+
 // approx coords
 fetch("https://ipwho.is?fields=latitude,longitude,city")
   .then((res) =>
     res.json().then((json) => {
-      htmx.ajax("GET", "/vaktija", {
-        values: {
-          latitude: json.latitude,
-          longitude: json.longitude,
-          timezone: timezone,
-        },
-        target: "#vaktija",
-        swap: "innerHTML",
-      });
+      latitude = json.latitude;
+      longitude = json.longitude;
+      updatePosition();
     }),
   )
   .finally(() => {
-    // exact coords wip
+    // exact coords
     navigator.geolocation.getCurrentPosition((pos) => {
-      htmx.ajax("GET", "/vaktija", {
-        values: {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          timezone: timezone,
-        },
-        target: "#vaktija",
-        swap: "innerHTML",
-      });
+      latitude = pos.coords.latitude;
+      longitude = pos.coords.longitude;
+      updatePosition();
     });
   });
+
+export function updatePosition() {
+  htmx.find("#latitude").value = latitude;
+  htmx.find("#longitude").value = longitude;
+  htmx.find("#timezone").value = timezone;
+  htmx.trigger("#vaktija", "update-vakat");
+}
