@@ -20,6 +20,7 @@
       type="number"
       name="latitude"
       id="latitude"
+      onchange="htmx.trigger('#vaktija', 'update-vakat')"
     />
   </div>
   <div class="w-22 mr-2">
@@ -29,9 +30,10 @@
       type="number"
       name="longitude"
       id="longitude"
+      onchange="htmx.trigger('#vaktija', 'update-vakat')"
     />
   </div>
-  <div class="w-22 mr-2">
+  <div class="hidden">
     <label>Pomak</label>
     <input
       class="w-full border rounded-md"
@@ -45,7 +47,6 @@
       type="checkbox"
       name="precise"
       id="precise"
-      checked
       onchange="htmx.trigger('#vaktija', 'update-vakat')"
     />
     <label class="mr-2">Precizno vreme</label>
