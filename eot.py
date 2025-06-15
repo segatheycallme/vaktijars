@@ -7,7 +7,7 @@ jd = 2440587.5 + since_epoch / 86400
 c = (jd - 2451_545) / 36525
 
 res = []
-for i in range(365 * 4):
+for i in range(365):
     # degrees land
     halfLife = 280.46645 + 36000.76983 * c + 0.0003032 * c * c  # L0
     anomaly = (
@@ -44,7 +44,7 @@ for i in range(365 * 4):
     #     "s",
     # )
 
-xpoints = np.array(range(1, 365 * 4 + 1))
+xpoints = np.array(range(1, 365 + 1))
 ypoints = res
 
 plt.plot(xpoints, ypoints)
