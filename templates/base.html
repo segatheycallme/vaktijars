@@ -16,7 +16,7 @@
     <title>{{ title }}</title>
     {% block head %} {% endblock %}
   </head>
-  <body>
+  <body class="bg-white dark:bg-black">
     <!-- ugh -->
     <main class="min-h-[calc(100vh-11rem)] relative">
       {% block content %} {% endblock %}
@@ -28,10 +28,12 @@
         class="h-full w-full"
       />
       <div
-        class="absolute top-0 right-0 w-full h-1/2 bg-gradient-to-b from-white/100 to-white/0 flex justify-between"
+        class="absolute top-0 right-0 w-full h-1/2 bg-gradient-to-b from-white/100 dark:from-black/100 to-white/0 text-stone-800 dark:text-stone-100 flex justify-between"
       >
         <span class="px-2">Made by:</span>
-        <span class="px-2 italic">massive chair angel</span>
+        <a href="https://github.com/segatheycallme/vaktijars">
+          <span class="px-2 italic">massive chair angel</span>
+        </a>
       </div>
     </footer>
   </body>

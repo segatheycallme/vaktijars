@@ -1,21 +1,23 @@
 <!-- peak htmx-ing -->
-<div class="flex flex-col justify-center text-stone-700 lg:pt-20">
+<div
+  class="flex flex-col justify-center lg:pt-20 text-stone-700 dark:text-stone-100"
+>
   <h1
     id="time"
-    class="text-stone-300 text-6xl font-bold text-center mb-6 mt-2"
+    class="text-6xl font-bold text-center mb-6 mt-2 text-stone-300 dark:text-stone-600"
     data-timestamp="{{next_prayer_since_epoch}}"
   >
     :(
   </h1>
   <h2 class="text-5xl font-bold text-center mb-3">{{place}}</h2>
-  <p class="text-sm italic text-center">{{date}}</p>
+  <p class="text-sm italic text-center dark:text-stone-300">{{date}}</p>
   <div
     class="flex flex-col md:grid grid-rows-2 grid-cols-3 xl:grid-cols-6 justify-center lg:justify-evenly lg:px-8 xl:px-16"
   >
     {% for time in vakat %}
     <div class="mt-8">
       <h4 class="text-center text-2xl">{{time.name}}</h4>
-      <h3 class="text-center text-5xl font-bold text-{{time.get_color()}}">
+      <h3 class="text-center text-5xl font-bold {{time.get_color()}}">
         {{time.absolute_time(precise)}}
       </h3>
       <h4

@@ -1,7 +1,9 @@
 {% extends "base.html" %} {% block head %}
 <script type="module" src="/public/landing.js"></script>
 {% endblock %} {% block content %}
-<header class="w-screen h-8 px-4 mt-4 flex justify-between">
+<header
+  class="w-screen h-8 px-4 mt-4 flex justify-between text-stone-800 dark:text-stone-100"
+>
   <svg
     viewBox="0 0 209.145 223.694"
     height="32"
@@ -35,6 +37,7 @@
     <button type="submit">
       <svg viewBox="0 0 50 50" height="32" width="32" class="h-full">
         <path
+          fill="currentcolor"
           d="M 21 3 C 11.621094 3 4 10.621094 4 20 C 4 29.378906 11.621094 37 21 37 C 24.710938 37 28.140625 35.804688 30.9375 33.78125 L 44.09375 46.90625 L 46.90625 44.09375 L 33.90625 31.0625 C 36.460938 28.085938 38 24.222656 38 20 C 38 10.621094 30.378906 3 21 3 Z M 21 5 C 29.296875 5 36 11.703125 36 20 C 36 28.296875 29.296875 35 21 35 C 12.703125 35 6 28.296875 6 20 C 6 11.703125 12.703125 5 21 5 Z"
         ></path>
       </svg>
@@ -52,7 +55,7 @@
 </div>
 <div
   id="opts"
-  class="relative lg:absolute bottom-0 left-0 w-screen my-3 flex justify-center items-center gap-2 flex-wrap"
+  class="relative lg:absolute bottom-0 left-0 w-screen my-3 flex justify-center items-center gap-2 flex-wrap text-stone-800 dark:text-stone-100"
 >
   <div class="w-22 mr-2">
     <label>Latituda</label>

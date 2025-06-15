@@ -30,6 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let rtree = generate_coord_rtree("c1ties500.csv")?;
     println!("RTree generated");
     let cities = read_big_cities("cities15000.csv")?;
+    println!("Big cities parsed");
     let app = Router::new()
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))

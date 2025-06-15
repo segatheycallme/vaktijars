@@ -96,8 +96,8 @@ impl VaktijaTime {
     }
     pub fn get_color(&self) -> String {
         match self.color {
-            VaktijaColor::Base => "stone-800",
-            VaktijaColor::Active => "stone-400",
+            VaktijaColor::Base => "text-stone-800 dark:text-stone-500",
+            VaktijaColor::Active => "text-stone-400 dark:text-stone-300",
         }
         .to_string()
     }
