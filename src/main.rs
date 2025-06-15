@@ -1,5 +1,5 @@
 use core::f64;
-use std::{error::Error, sync::Arc};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -11,21 +11,38 @@ use axum::{
     serve::serve,
 };
 use chrono::Utc;
+use edit_distance::edit_distance;
 use rstar::{DefaultParams, RTree};
 use serde::Deserialize;
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeDir};
 use vaktijars::{City, VaktijaColor, VaktijaTime, generate_coord_rtree, prayer_times};
 
+struct AppState {
+    rtree: RTree<City, DefaultParams>,
+    cities: Vec<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let state = Arc::new(generate_coord_rtree("c1ties500.csv")?);
+    let rtree = generate_coord_rtree("c1ties500.csv")?;
     println!("RTree generated");
+    let cities = csv::Reader::from_path("cities15000.csv")?
+        .records()
+        .filter_map(|record| {
+            let Ok(record) = record else {
+                eprintln!("error parsing csv: {}", record.unwrap_err());
+                return None;
+            };
+            Some(record.get(0).unwrap().to_lowercase())
+        })
+        .collect();
     let app = Router::new()
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))
+        .route("/citayyy", get(citayyy))
         .nest_service("/public", ServeDir::new("public"))
-        .with_state(state)
+        .with_state(Arc::new(AppState { rtree, cities }))
         .layer(CompressionLayer::new().br(true).gzip(true));
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
@@ -66,10 +83,7 @@ struct VaktijaInfo {
     offset: Option<String>,
 }
 
-async fn vaktija(
-    Query(info): Query<VaktijaInfo>,
-    State(rtree): State<Arc<RTree<City, DefaultParams>>>,
-) -> Vaktija {
+async fn vaktija(Query(info): Query<VaktijaInfo>, State(state): State<Arc<AppState>>) -> Vaktija {
     let mut now = Utc::now().date_naive();
     let precise = match info.precise {
         Some(x) => &x == "on",
@@ -103,7 +117,8 @@ async fn vaktija(
         vakat[next_prayer_idx].color = VaktijaColor::Active;
 
         return Vaktija {
-            place: rtree
+            place: state
+                .rtree
                 .nearest_neighbor(&City::new(info.latitude, info.longitude))
                 .map_or("😭".to_string(), |x| x.name.clone()),
             date: now.to_string(),
@@ -111,5 +126,34 @@ async fn vaktija(
             vakat,
             precise,
         };
+    }
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "active_search.html")]
+struct ActiveSearch {
+    results: Vec<(isize, String)>,
+}
+
+async fn citayyy(
+    axum::extract::Query(query): axum::extract::Query<HashMap<String, String>>,
+    State(state): State<Arc<AppState>>,
+) -> ActiveSearch {
+    let search_query = query.get("aktiv-search").unwrap().to_lowercase();
+    let mut closest_match: Vec<_> = state
+        .cities
+        .iter()
+        .map(|a| {
+            (
+                edit_distance(a, &search_query) as isize
+                    - (a.starts_with(&search_query) as isize * 10),
+                a,
+            )
+        })
+        .collect();
+    closest_match.sort();
+    let a = closest_match.split_at(5).0;
+    ActiveSearch {
+        results: a.iter().map(|a| (a.0, a.1.to_string())).collect(),
     }
 }
