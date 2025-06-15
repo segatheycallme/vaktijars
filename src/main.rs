@@ -16,6 +16,8 @@ use rstar::{DefaultParams, RTree};
 use serde::Deserialize;
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeDir};
+use tracing::{debug, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use vaktijars::{
     City, VaktijaColor, VaktijaTime, generate_coord_rtree, prayer_times, read_big_cities,
 };
@@ -27,10 +29,17 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+    info!("Tracing initialised");
+
     let rtree = generate_coord_rtree("c1ties500.csv")?;
-    println!("RTree generated");
+    info!("RTree generated");
     let cities = read_big_cities("cities15000.csv")?;
-    println!("Big cities parsed");
+    info!("Big cities parsed");
+
     let app = Router::new()
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))
@@ -40,7 +49,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .layer(CompressionLayer::new().br(true).gzip(true));
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
-    println!("Listening on 0.0.0.0:3000");
+    info!("Listening on 0.0.0.0:3000");
     serve(listener, app).await?;
 
     Ok(())
@@ -140,6 +149,7 @@ async fn citayyy(
     Query(query): Query<CitySearch>,
     State(state): State<Arc<AppState>>,
 ) -> ActiveSearch {
+    debug!("citayyy called");
     let search_query = query.q.unwrap().to_lowercase(); // mucno mi stv
     let mut closest_match: Vec<_> = state
         .cities
@@ -154,6 +164,8 @@ async fn citayyy(
         .collect();
     closest_match.sort_unstable_by_key(|x| x.0);
     let fantastiche_funf = closest_match.split_at(5).0;
+
+    debug!(edit_distance = fantastiche_funf[0].0);
     ActiveSearch {
         lat: fantastiche_funf[0].1.lat,
         lon: fantastiche_funf[0].1.lon,
