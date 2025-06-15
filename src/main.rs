@@ -153,7 +153,7 @@ async fn citayyy(
         })
         .collect();
     closest_match.sort_unstable_by_key(|x| x.0);
-    let fantastiche_funf = dbg!(closest_match.split_at(5).0);
+    let fantastiche_funf = closest_match.split_at(5).0;
     ActiveSearch {
         lat: fantastiche_funf[0].1.lat,
         lon: fantastiche_funf[0].1.lon,
