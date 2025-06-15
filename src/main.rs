@@ -1,5 +1,5 @@
 use core::f64;
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{error::Error, sync::Arc};
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -16,27 +16,20 @@ use rstar::{DefaultParams, RTree};
 use serde::Deserialize;
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeDir};
-use vaktijars::{City, VaktijaColor, VaktijaTime, generate_coord_rtree, prayer_times};
+use vaktijars::{
+    City, VaktijaColor, VaktijaTime, generate_coord_rtree, prayer_times, read_big_cities,
+};
 
 struct AppState {
     rtree: RTree<City, DefaultParams>,
-    cities: Vec<String>,
+    cities: Vec<City>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let rtree = generate_coord_rtree("c1ties500.csv")?;
     println!("RTree generated");
-    let cities = csv::Reader::from_path("cities15000.csv")?
-        .records()
-        .filter_map(|record| {
-            let Ok(record) = record else {
-                eprintln!("error parsing csv: {}", record.unwrap_err());
-                return None;
-            };
-            Some(record.get(0).unwrap().to_lowercase())
-        })
-        .collect();
+    let cities = read_big_cities("cities15000.csv")?;
     let app = Router::new()
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))
@@ -132,28 +125,40 @@ async fn vaktija(Query(info): Query<VaktijaInfo>, State(state): State<Arc<AppSta
 #[derive(Template, WebTemplate)]
 #[template(path = "active_search.html")]
 struct ActiveSearch {
-    results: Vec<(isize, String)>,
+    results: Vec<(isize, City)>,
+    lat: f64,
+    lon: f64,
+}
+
+#[derive(Deserialize)]
+struct CitySearch {
+    q: Option<String>,
 }
 
 async fn citayyy(
-    axum::extract::Query(query): axum::extract::Query<HashMap<String, String>>,
+    Query(query): Query<CitySearch>,
     State(state): State<Arc<AppState>>,
 ) -> ActiveSearch {
-    let search_query = query.get("aktiv-search").unwrap().to_lowercase();
+    let search_query = query.q.unwrap(); // mucno mi stv
     let mut closest_match: Vec<_> = state
         .cities
         .iter()
         .map(|a| {
             (
-                edit_distance(a, &search_query) as isize
-                    - (a.starts_with(&search_query) as isize * 10),
+                edit_distance(&a.name, &search_query) as isize
+                    - (a.name.starts_with(&search_query) as isize * 10),
                 a,
             )
         })
         .collect();
-    closest_match.sort();
-    let a = closest_match.split_at(5).0;
+    closest_match.sort_unstable_by_key(|x| x.0);
+    let fantastiche_funf = closest_match.split_at(5).0;
     ActiveSearch {
-        results: a.iter().map(|a| (a.0, a.1.to_string())).collect(),
+        lat: fantastiche_funf[0].1.lat,
+        lon: fantastiche_funf[0].1.lon,
+        results: fantastiche_funf
+            .iter()
+            .map(|a| (a.0, a.1.clone()))
+            .collect(),
     }
 }

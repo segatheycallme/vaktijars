@@ -19,9 +19,26 @@ fetch("https://ipwho.is?fields=latitude,longitude,city")
     });
   });
 
-export function updatePosition() {
+function updatePosition() {
   htmx.find("#latitude").value = latitude;
   htmx.find("#longitude").value = longitude;
   htmx.find("#timezone").value = timezone;
   htmx.trigger("#vaktija", "update-vakat");
 }
+
+htmx.on("#active-search-form", "submit", async function (event) {
+  event.preventDefault();
+
+  // hate this
+  while (htmx.find("#active-search-input").classList.contains("htmx-request")) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+
+  const cities = htmx.find("#cities");
+  latitude = cities.getAttribute("data-lat");
+  longitude = cities.getAttribute("data-lon");
+
+  updatePosition();
+  htmx.swap("#cities", '<div id="cities"></div>', { swapStyle: "outerHTML" });
+  htmx.find("#active-search-input").value = "";
+});

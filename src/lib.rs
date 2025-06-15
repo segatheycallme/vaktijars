@@ -190,10 +190,10 @@ pub fn prayer_times(
     ]
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct City {
-    lat: f64,
-    lon: f64,
+    pub lat: f64,
+    pub lon: f64,
     pub name: String,
 }
 
@@ -253,4 +253,22 @@ pub fn generate_coord_rtree(
         })
         .collect();
     Ok(RTree::bulk_load(cities))
+}
+
+pub fn read_big_cities(path: &'static str) -> Result<Vec<City>, Box<dyn Error>> {
+    let cities: Vec<City> = csv::Reader::from_path(path)?
+        .records()
+        .filter_map(|record| {
+            let Ok(record) = record else {
+                eprintln!("error parsing csv: {}", record.unwrap_err());
+                return None;
+            };
+            Some(City {
+                lat: record.get(1).unwrap().parse().unwrap(),
+                lon: record.get(2).unwrap().parse().unwrap(),
+                name: record.get(0).unwrap().to_owned(),
+            })
+        })
+        .collect();
+    Ok(cities)
 }
