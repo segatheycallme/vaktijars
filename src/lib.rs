@@ -195,6 +195,7 @@ pub struct City {
     pub lat: f64,
     pub lon: f64,
     pub name: String,
+    pub lower: String,
 }
 
 impl Point for City {
@@ -206,6 +207,7 @@ impl Point for City {
             lat: generator(0),
             lon: generator(1),
             name: ":3".to_string(),
+            lower: ":p".to_string(),
         }
     }
 
@@ -231,6 +233,7 @@ impl City {
             lat,
             lon,
             name: String::from("Novi Pazar"),
+            lower: String::from("novi pazar"),
         }
     }
 }
@@ -249,6 +252,7 @@ pub fn generate_coord_rtree(
                 lat: record.get(1).unwrap().parse().unwrap(),
                 lon: record.get(2).unwrap().parse().unwrap(),
                 name: record.get(0).unwrap().to_owned(),
+                lower: record.get(0).unwrap().to_lowercase(),
             })
         })
         .collect();
@@ -267,6 +271,7 @@ pub fn read_big_cities(path: &'static str) -> Result<Vec<City>, Box<dyn Error>> 
                 lat: record.get(1).unwrap().parse().unwrap(),
                 lon: record.get(2).unwrap().parse().unwrap(),
                 name: record.get(0).unwrap().to_owned(),
+                lower: record.get(0).unwrap().to_lowercase(),
             })
         })
         .collect();

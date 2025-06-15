@@ -139,20 +139,20 @@ async fn citayyy(
     Query(query): Query<CitySearch>,
     State(state): State<Arc<AppState>>,
 ) -> ActiveSearch {
-    let search_query = query.q.unwrap(); // mucno mi stv
+    let search_query = query.q.unwrap().to_lowercase(); // mucno mi stv
     let mut closest_match: Vec<_> = state
         .cities
         .iter()
         .map(|a| {
             (
-                edit_distance(&a.name, &search_query) as isize
-                    - (a.name.starts_with(&search_query) as isize * 10),
+                edit_distance(&a.lower, &search_query) as isize
+                    - (a.lower.starts_with(&search_query) as isize * 10),
                 a,
             )
         })
         .collect();
     closest_match.sort_unstable_by_key(|x| x.0);
-    let fantastiche_funf = closest_match.split_at(5).0;
+    let fantastiche_funf = dbg!(closest_match.split_at(5).0);
     ActiveSearch {
         lat: fantastiche_funf[0].1.lat,
         lon: fantastiche_funf[0].1.lon,
