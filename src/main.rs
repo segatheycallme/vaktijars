@@ -11,7 +11,7 @@ use axum::{
     routing::get,
     serve::serve,
 };
-use chrono::{FixedOffset, Utc};
+use chrono::{FixedOffset, TimeDelta, Utc};
 use edit_distance::edit_distance;
 use rstar::{DefaultParams, RTree};
 use serde::{Deserialize, Serialize};
@@ -199,7 +199,10 @@ async fn vaktija_api(
     Query(query): Query<ApiQuery>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    let now = Utc::now().date_naive();
+    let now = Utc::now()
+        .checked_add_signed(TimeDelta::seconds(query.timezone as i64))
+        .unwrap()
+        .date_naive();
     if let Some((lat, lon)) = match query.q {
         Some(q) => {
             let search_query = q.to_lowercase();
@@ -222,19 +225,7 @@ async fn vaktija_api(
             _ => None,
         },
     } {
-        let mut vakat;
-        loop {
-            vakat = prayer_times(lat, lon, query.timezone / 3600.0, now, false);
-            if vakat
-                .iter()
-                .max_by_key(|x| x.date_time)
-                .unwrap()
-                .time_remaining()
-                .is_positive()
-            {
-                break;
-            }
-        }
+        let vakat = prayer_times(lat, lon, query.timezone / 3600.0, now, false);
         let res = ApiResponse {
             latitude: lat,
             longitutde: lon,

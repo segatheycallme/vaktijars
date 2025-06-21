@@ -6,6 +6,41 @@ _written in rust_
 > [!WARNING]
 > Don't trust this site to accurately calculate prayer times. No guarantees.
 
+## API
+
+There are two ways to use the public API:
+
+- Querying via latitude and longitude
+
+```http
+GET /api/vaktija?timezone=7200&latitude=44.80&longitude=20.46
+```
+
+- Querying by city name
+
+```http
+GET /api/vaktija?timezone=7200&q=Belgrade
+```
+
+The `vakat` field in the response has the same order as the prayer times on the website:
+
+```json
+{
+  "latitude": 44.8,
+  "longitutde": 20.46,
+  "city": "Belgrade",
+  "timezone": 7200.0,
+  "vakat": [
+    "2025-06-21T02:20:35+02:00",
+    "2025-06-21T04:52:18+02:00",
+    "2025-06-21T12:40:02+02:00",
+    "2025-06-21T16:48:55+02:00",
+    "2025-06-21T20:27:45+02:00",
+    "2025-06-21T22:46:27+02:00"
+  ]
+}
+```
+
 ## Calculating prayer times
 
 Most of the calculations are taken from <https://praytimes.org>.
@@ -42,5 +77,7 @@ to enforce DRY principles. Only real challenge was the Serbian language.
 
 ## TODO
 
+- [x] Public API
+  - [ ] Query a specific day
 - [ ] English language
 - [ ] Efficient active search
