@@ -4,16 +4,17 @@ use std::{error::Error, sync::Arc};
 use askama::Template;
 use askama_web::WebTemplate;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Query, State},
+    http::StatusCode,
     response::IntoResponse,
     routing::get,
     serve::serve,
 };
-use chrono::Utc;
+use chrono::{FixedOffset, Utc};
 use edit_distance::edit_distance;
 use rstar::{DefaultParams, RTree};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tower_http::{compression::CompressionLayer, services::ServeDir};
 use tracing::{debug, info};
@@ -44,6 +45,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .route("/", get(landing))
         .route("/vaktija", get(vaktija))
         .route("/citayyy", get(citayyy))
+        .route("/api/vaktija", get(vaktija_api))
         .nest_service("/public", ServeDir::new("public"))
         .with_state(Arc::new(AppState { rtree, cities }))
         .layer(CompressionLayer::new().br(true).gzip(true));
@@ -142,7 +144,7 @@ struct ActiveSearch {
 
 #[derive(Deserialize)]
 struct CitySearch {
-    q: Option<String>,
+    q: String,
 }
 
 async fn citayyy(
@@ -150,8 +152,8 @@ async fn citayyy(
     State(state): State<Arc<AppState>>,
 ) -> ActiveSearch {
     debug!("citayyy called");
-    let search_query = query.q.unwrap().to_lowercase(); // mucno mi stv
-    let mut closest_match: Vec<_> = state
+    let search_query = query.q.to_lowercase();
+    let mut closest_matches: Vec<_> = state
         .cities
         .iter()
         .map(|a| {
@@ -162,8 +164,8 @@ async fn citayyy(
             )
         })
         .collect();
-    closest_match.sort_unstable_by_key(|x| x.0);
-    let fantastiche_funf = closest_match.split_at(5).0;
+    closest_matches.sort_unstable_by_key(|x| x.0);
+    let fantastiche_funf = closest_matches.split_at(5).0;
 
     debug!(edit_distance = fantastiche_funf[0].0);
     ActiveSearch {
@@ -173,5 +175,90 @@ async fn citayyy(
             .iter()
             .map(|a| (a.0, a.1.clone()))
             .collect(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ApiQuery {
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+    timezone: f64,
+    q: Option<String>,
+}
+
+#[derive(Serialize, Debug)]
+struct ApiResponse {
+    latitude: f64,
+    longitutde: f64,
+    city: String,
+    timezone: f64,
+    vakat: Vec<Option<String>>,
+}
+
+async fn vaktija_api(
+    Query(query): Query<ApiQuery>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let now = Utc::now().date_naive();
+    if let Some((lat, lon)) = match query.q {
+        Some(q) => {
+            let search_query = q.to_lowercase();
+            let closest_match = state
+                .cities
+                .iter()
+                .map(|a| {
+                    (
+                        edit_distance(&a.lower, &search_query) as isize
+                            - (a.lower.starts_with(&search_query) as isize * 10),
+                        a,
+                    )
+                })
+                .min_by_key(|x| x.0)
+                .unwrap();
+            Some((closest_match.1.lat, closest_match.1.lon))
+        }
+        None => match (query.latitude, query.longitude) {
+            (Some(lat), Some(lon)) => Some((lat, lon)),
+            _ => None,
+        },
+    } {
+        let mut vakat;
+        loop {
+            vakat = prayer_times(lat, lon, query.timezone / 3600.0, now, false);
+            if vakat
+                .iter()
+                .max_by_key(|x| x.date_time)
+                .unwrap()
+                .time_remaining()
+                .is_positive()
+            {
+                break;
+            }
+        }
+        let res = ApiResponse {
+            latitude: lat,
+            longitutde: lon,
+            timezone: query.timezone,
+            city: state
+                .rtree
+                .nearest_neighbor(&City::new(lat, lon))
+                .map_or("😭".to_string(), |x| x.name.clone()),
+            vakat: vakat
+                .into_iter()
+                .map(|x| {
+                    x.date_time.map(|y| {
+                        y.and_local_timezone(FixedOffset::east_opt(query.timezone as i32).unwrap())
+                            .unwrap()
+                            .to_rfc3339()
+                    })
+                })
+                .collect(),
+        };
+        (StatusCode::OK, Json::from(res).into_response())
+    } else {
+        (
+            StatusCode::BAD_REQUEST,
+            "Missing fields: latitude and longitude".into_response(),
+        )
     }
 }
